@@ -41,7 +41,7 @@ void setup() {
 }
 
 typedef void (*SimplePatternList[])();
-SimplePatternList patterns = { confetti, slow };
+SimplePatternList patterns = { confetti, crawl };
   
 void loop() {
   patterns[current_pattern_num]();
@@ -77,14 +77,14 @@ void nextPalette() {
   palette = palettes[current_palette_num];
 }
 
-int8_t slow_index = 0;
-void slow() {
+int8_t crawl_index = 0;
+void crawl() {
   fadeToBlackBy(leds, NUM_LEDS, 10);
   accum88 bpm = 4;
   uint16_t led = beatsin16(bpm, 0, NUM_LEDS - 1);
   // Only set this index once.
-  if (slow_index != led) {
-    slow_index = led;
+  if (crawl_index  != led) {
+    crawl_index  = led;
     leds[led] += ColorFromPalette(palette, random8(), 255, NOBLEND);
   }
 }
