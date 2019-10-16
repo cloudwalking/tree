@@ -16,13 +16,16 @@ DEFINE_GRADIENT_PALETTE(orange_green) {
   0, 255, 84, 0, // Orange
   255, 0, 196, 32, // Green
 };
-
 DEFINE_GRADIENT_PALETTE(green_purple) {
   0, 255, 0, 128, // Purple
   255, 0, 196, 32, // Green
 };
+DEFINE_GRADIENT_PALETTE(orange) {
+  0, 32, 8, 0, // Very Dark Orange
+  255, 255, 84, 0 // Orange
+};
 
-const TProgmemRGBGradientPalettePtr palettes[] = { green_purple, orange_green };
+const TProgmemRGBGradientPalettePtr palettes[] = { green_purple, orange_green, orange };
 uint8_t current_palette_num = 0;
 CRGBPalette16 palette = palettes[current_palette_num];
 
@@ -41,7 +44,7 @@ void setup() {
 }
 
 typedef void (*SimplePatternList[])();
-SimplePatternList patterns = { confetti, crawl };
+SimplePatternList patterns = { confetti, crawl, juggle, just_orange };
   
 void loop() {
   patterns[current_pattern_num]();
@@ -53,7 +56,7 @@ void loop() {
   EVERY_N_SECONDS(20) {
     nextPattern();
   }
-  EVERY_N_SECONDS(40) {
+  EVERY_N_SECONDS(80) {
     nextPalette();
   }
 
@@ -80,10 +83,10 @@ void nextPalette() {
 int8_t crawl_index = 0;
 void crawl() {
   fadeToBlackBy(leds, NUM_LEDS, 10);
-  accum88 bpm = 4;
+  accum88 bpm = 5;
   uint16_t led = beatsin16(bpm, 0, NUM_LEDS - 1);
   // Only set this index once.
-  if (crawl_index  != led) {
+  if (crawl_index != led) {
     crawl_index  = led;
     leds[led] += ColorFromPalette(palette, random8(), 255, NOBLEND);
   }
@@ -97,11 +100,22 @@ void confetti()  {
   }
 }
 
+int8_t juggle_index = 0;
 void juggle() {
   // Dots weaving in and out of sync with each other
   fadeToBlackBy(leds, NUM_LEDS, 20);
-  for( int i = 0; i < 3; i++) {
-    leds[beatsin16(i+7, 0, NUM_LEDS - 1)] |= ColorFromPalette(palette, random8(), 255, NOBLEND);
+  accum88 bpm = 2;
+  uint16_t loc = beatsin16(bpm, 0, NUM_LEDS - 1);
+  if (juggle_index != loc) {
+    juggle_index = loc;
+    leds[addmod8(juggle_index, 2, NUM_LEDS)] |= ColorFromPalette(palette, 255, 255, NOBLEND);
+    leds[juggle_index] |= ColorFromPalette(palette, 0, 255, NOBLEND);
+  }
+}
+
+void just_orange() {
+  for (uint16_t i = 0; i < NUM_LEDS; i++) {
+    leds[i] = ColorFromPalette((CRGBPalette16)orange, random8(), 255, LINEARBLEND);
   }
 }
 
