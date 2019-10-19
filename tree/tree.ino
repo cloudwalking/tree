@@ -1,3 +1,5 @@
+#include "ESP8266mDNS.h"
+#include "ESP8266WiFi.h"
 #include "FastLED.h"
 
 FASTLED_USING_NAMESPACE
@@ -41,10 +43,14 @@ void setup() {
   FastLED.setBrightness(BRIGHTNESS);
 
   fill_solid(leds, NUM_LEDS, CRGB::Black);
+
+  Serial.begin(115200);
+  WiFi.hostname("tree");
+  WiFi.begin("cocacola", "football");
 }
 
 typedef void (*SimplePatternList[])();
-SimplePatternList patterns = { confetti, crawl, juggle, just_orange };
+SimplePatternList patterns = { confetti, crawl, juggle };
   
 void loop() {
   patterns[current_pattern_num]();
@@ -61,11 +67,20 @@ void loop() {
   }
 
   // Onboard LED indicator.
-  EVERY_N_SECONDS(10) {
-    digitalWrite(ONBOARD_PIN, LOW);
+  EVERY_N_MILLISECONDS(500) { digitalWrite(ONBOARD_PIN, HIGH); /* On */}
+  if (WiFi.status() == WL_CONNECTED) {
+    // Off
+    EVERY_N_SECONDS(10) { digitalWrite(ONBOARD_PIN, LOW); /* Off */}
+  } else {
+    // Off
+    EVERY_N_SECONDS(1) { digitalWrite(ONBOARD_PIN, LOW); /* Off */}
   }
-  EVERY_N_MILLISECONDS(500) {
-    digitalWrite(ONBOARD_PIN, HIGH);
+
+  EVERY_N_SECONDS(5) {
+    Serial.print("wifi status: ");
+    if (WiFi.status() == WL_CONNECTED) { Serial.print(WiFi.localIP()); }
+    else { Serial.print(WiFi.status()); }
+    Serial.println();
   }
 }
 
