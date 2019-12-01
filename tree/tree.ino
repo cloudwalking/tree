@@ -46,6 +46,9 @@ void setup() {
   
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
+  
+  // 12 volt 5 amp.
+  set_max_power_in_volts_and_milliamps(12, 5000);
 
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
