@@ -28,7 +28,8 @@ DEFINE_GRADIENT_PALETTE(orange) {
   255, 255, 84, 0 // Orange
 };
 
-const TProgmemRGBGradientPalettePtr palettes[] = { green_purple, orange_green, orange };
+//const TProgmemRGBGradientPalettePtr palettes[] = { green_purple, orange_green, orange };
+CRGBPalette16 palettes[] = { RainbowColors_p };
 uint8_t current_palette_num = 0;
 CRGBPalette16 palette = palettes[current_palette_num];
 
@@ -54,7 +55,7 @@ void setup() {
 }
 
 typedef void (*SimplePatternList[])();
-SimplePatternList patterns = { confetti, crawl, juggle };
+SimplePatternList patterns = { rainbow_crawl, confetti, ribbons, crawl, juggle };
   
 void loop() {
   patterns[current_pattern_num]();
@@ -109,7 +110,7 @@ void loop() {
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
 /////////////////////////////////////////////////////////
-// LEDs
+// LED
 
 void nextPattern() {
   current_pattern_num = addmod8(current_pattern_num, 1, ARRAY_SIZE(patterns));
@@ -121,8 +122,9 @@ void nextPalette() {
 }
 
 int8_t crawl_index = 0;
+
 void crawl() {
-  fadeToBlackBy(leds, NUM_LEDS, 10);
+  fadeToBlackBy(leds, NUM_LEDS, 2);
   accum88 bpm = 5 * speed_override;
   uint16_t led = beatsin16(bpm, 0, NUM_LEDS - 1);
   // Only set this index once.
@@ -134,7 +136,7 @@ void crawl() {
 
 void confetti()  {
   #define CONFETTI_MS 150
-  fadeToBlackBy(leds, NUM_LEDS, 4);
+  fadeToBlackBy(leds, NUM_LEDS, 1);
   EVERY_N_MILLIS_I(timer, CONFETTI_MS) {
     int pos = random16(NUM_LEDS);
     leds[pos] += ColorFromPalette(palette, random8(), 255, NOBLEND);
@@ -143,15 +145,47 @@ void confetti()  {
 }
 
 int8_t juggle_index = 0;
+
 void juggle() {
-  // Dots weaving in and out of sync with each other
-  fadeToBlackBy(leds, NUM_LEDS, 20);
-  accum88 bpm = 2 * speed_override;
-  uint16_t loc = beatsin16(bpm, 0, NUM_LEDS - 1);
-  if (juggle_index != loc) {
-    juggle_index = loc;
-    leds[addmod8(juggle_index, 2, NUM_LEDS)] |= ColorFromPalette(palette, 255, 255, NOBLEND);
-    leds[juggle_index] |= ColorFromPalette(palette, 0, 255, NOBLEND);
+  // Red and green dots weaving in and out of sync with each other.
+  fadeToBlackBy(leds, NUM_LEDS, 5);
+  accum88 bpm = 1 * speed_override;
+  //uint16_t location = beatsin16(bpm, 0, NUM_LEDS - 1);
+  uint8_t location = beat8(bpm) % NUM_LEDS;
+  if (juggle_index != location) {
+    juggle_index = location;
+    uint8_t location_1 = location;
+    uint8_t location_2 = addmod8(location, 5, NUM_LEDS);
+    uint8_t location_3 = addmod8(location_1, NUM_LEDS / 2, NUM_LEDS);
+    uint8_t location_4 = addmod8(location_2, NUM_LEDS / 2, NUM_LEDS);
+    leds[location_1] |= CRGB(255, 0, 0);
+    leds[location_3] |= CRGB(255, 0, 0);
+    leds[location_2] |= CRGB(0, 255, 0);
+    leds[location_4] |= CRGB(0, 255, 0);
+  }
+}
+
+int8_t ribbons_index = 0;
+
+// Fill the dots one after the other with a color.
+void ribbons() {
+  fadeToBlackBy(leds, NUM_LEDS, 1);
+  accum88 bpm = 8 * speed_override;
+  uint16_t led = beatsin16(bpm, 0, NUM_LEDS - 1);
+  // Only set this index once.
+  if (ribbons_index != led) {
+    ribbons_index  = led;
+    leds[led] += ColorFromPalette(palette, random8(), 255, NOBLEND);
+  }
+}
+
+int8_t rainbow_crawl_index = 0;
+
+void rainbow_crawl() {
+  EVERY_N_MILLISECONDS(20) {
+    uint8_t hue = mod8(rainbow_crawl_index, 255);
+    fill_rainbow(leds, NUM_LEDS, hue);
+    rainbow_crawl_index += 1.2 * speed_override;
   }
 }
 
