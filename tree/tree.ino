@@ -35,7 +35,7 @@ CRGBPalette16 palette = palettes[current_palette_num];
 
 uint8_t current_pattern_num = 0;
 uint8_t cycle_counter = 0;
-double speed_override = 1;
+double speed_override = 2;
 bool wifi_connected = false;
 ESP8266WebServer server(80);
 
@@ -46,9 +46,6 @@ void setup() {
   
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
-  
-  // 12 volt 5 amp.
-  set_max_power_in_volts_and_milliamps(12, 5000);
 
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
@@ -58,7 +55,7 @@ void setup() {
 }
 
 typedef void (*SimplePatternList[])();
-SimplePatternList patterns = { rainbow_crawl, confetti, ribbons, crawl, juggle };
+SimplePatternList patterns = { confetti, ribbons, crawl, juggle };
   
 void loop() {
   patterns[current_pattern_num]();
@@ -127,7 +124,7 @@ void nextPalette() {
 int8_t crawl_index = 0;
 
 void crawl() {
-  fadeToBlackBy(leds, NUM_LEDS, 2);
+  fadeToBlackBy(leds, NUM_LEDS, 8);
   accum88 bpm = 5 * speed_override;
   uint16_t led = beatsin16(bpm, 0, NUM_LEDS - 1);
   // Only set this index once.
@@ -172,8 +169,8 @@ int8_t ribbons_index = 0;
 
 // Fill the dots one after the other with a color.
 void ribbons() {
-  fadeToBlackBy(leds, NUM_LEDS, 1);
-  accum88 bpm = 8 * speed_override;
+  fadeToBlackBy(leds, NUM_LEDS, 16);
+  accum88 bpm = 5 * speed_override;
   uint16_t led = beatsin16(bpm, 0, NUM_LEDS - 1);
   // Only set this index once.
   if (ribbons_index != led) {
