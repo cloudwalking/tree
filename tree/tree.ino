@@ -1,11 +1,10 @@
 #include "ESP8266mDNS.h"
 #include "ESP8266WebServer.h"
 #include "ESP8266WiFi.h"
+#define FASTLED_ALLOW_INTERRUPTS 0
 #include "FastLED.h"
 
-FASTLED_USING_NAMESPACE
-
-#define BRIGHTNESS  255
+#define BRIGHTNESS  196
 #define DATA_PIN    D2
 #define LED_TYPE    WS2811
 #define COLOR_ORDER RGB
@@ -28,8 +27,21 @@ DEFINE_GRADIENT_PALETTE(orange) {
   255, 255, 84, 0 // Orange
 };
 
-//const TProgmemRGBGradientPalettePtr palettes[] = { green_purple, orange_green, orange };
-CRGBPalette16 palettes[] = { RainbowColors_p };
+DEFINE_GRADIENT_PALETTE(whites) {
+  0, 255, 255, 255,
+  128, 255, 214, 170,
+  255, 255, 197, 143
+};
+
+bool autoChangePalette = false;
+const TProgmemRGBGradientPalettePtr palettes[] = {
+  whites,
+  (TProgmemRGBGradientPalettePtr)RainbowColors_p,
+  green_purple,
+  orange_green,
+  orange
+};
+//CRGBPalette16 palettes[] = { RainbowColors_p };
 uint8_t current_palette_num = 0;
 CRGBPalette16 palette = palettes[current_palette_num];
 
@@ -54,6 +66,7 @@ void setup() {
   WiFi.begin("cocacola", "football");
 }
 
+bool autoChangePattern = true;
 typedef void (*SimplePatternList[])();
 SimplePatternList patterns = { confetti, ribbons, crawl, juggle };
   
@@ -62,10 +75,14 @@ void loop() {
   cycle_counter++;
 
   EVERY_N_SECONDS(20) {
-    nextPattern();
+    if (autoChangePattern) {
+      nextPattern();
+    }
   }
   EVERY_N_SECONDS(80) {
-    nextPalette();
+    if (autoChangePalette) {
+      nextPalette();
+    }
   }
 
   if (WiFi.status() == WL_CONNECTED) {
@@ -130,7 +147,7 @@ void crawl() {
   // Only set this index once.
   if (crawl_index != led) {
     crawl_index  = led;
-    leds[led] += ColorFromPalette(palette, random8(), 255, NOBLEND);
+    leds[led] += ColorFromPalette(palette, random8(), BRIGHTNESS, NOBLEND);
   }
 }
 
@@ -139,7 +156,7 @@ void confetti()  {
   fadeToBlackBy(leds, NUM_LEDS, 1);
   EVERY_N_MILLIS_I(timer, CONFETTI_MS) {
     int pos = random16(NUM_LEDS);
-    leds[pos] += ColorFromPalette(palette, random8(), 255, NOBLEND);
+    leds[pos] += ColorFromPalette(palette, random8(), BRIGHTNESS, NOBLEND);
   }
   timer.setPeriod(CONFETTI_MS / speed_override);
 }
@@ -147,7 +164,7 @@ void confetti()  {
 int8_t juggle_index = 0;
 
 void juggle() {
-  // Red and green dots weaving in and out of sync with each other.
+  // Dots weaving in and out of sync with each other.
   fadeToBlackBy(leds, NUM_LEDS, 5);
   accum88 bpm = 1 * speed_override;
   //uint16_t location = beatsin16(bpm, 0, NUM_LEDS - 1);
@@ -158,10 +175,12 @@ void juggle() {
     uint8_t location_2 = addmod8(location, 5, NUM_LEDS);
     uint8_t location_3 = addmod8(location_1, NUM_LEDS / 2, NUM_LEDS);
     uint8_t location_4 = addmod8(location_2, NUM_LEDS / 2, NUM_LEDS);
-    leds[location_1] |= CRGB(255, 0, 0);
-    leds[location_3] |= CRGB(255, 0, 0);
-    leds[location_2] |= CRGB(0, 255, 0);
-    leds[location_4] |= CRGB(0, 255, 0);
+    CRGB color1 = ColorFromPalette(palette, random8(), BRIGHTNESS, NOBLEND);
+    CRGB color2 = ColorFromPalette(palette, random8(), BRIGHTNESS, NOBLEND);
+    leds[location_1] |= color1;
+    leds[location_3] |= color1;
+    leds[location_2] |= color2;
+    leds[location_4] |= color2;
   }
 }
 
@@ -175,7 +194,7 @@ void ribbons() {
   // Only set this index once.
   if (ribbons_index != led) {
     ribbons_index  = led;
-    leds[led] += ColorFromPalette(palette, random8(), 255, NOBLEND);
+    leds[led] += ColorFromPalette(palette, random8(), BRIGHTNESS, NOBLEND);
   }
 }
 
@@ -191,7 +210,7 @@ void rainbow_crawl() {
 
 void just_orange() {
   for (uint16_t i = 0; i < NUM_LEDS; i++) {
-    leds[i] = ColorFromPalette((CRGBPalette16)orange, random8(), 255, LINEARBLEND);
+    leds[i] = ColorFromPalette((CRGBPalette16)orange, random8(), BRIGHTNESS, LINEARBLEND);
   }
 }
 
@@ -221,10 +240,15 @@ void handleSet() {
     if (argName.equals("speed")) {
       success = success && updateSpeed(server.arg(i));
     }
+    if (argName.equals("autoChangePalette")) {
+      success = success && updateChangePalette(server.arg(i));
+    }
   }
 
   if (success) {
-    server.send(200);
+    server.send(200, "text/plain", "success");
+  } else {
+    server.send(503, "text/plain", "Failed to parse args");
   }
 }
 
@@ -243,6 +267,24 @@ bool updateSpeed(String argval) {
   Serial.print("Setting speed: ");
   Serial.println(speed);
   speed_override = speed;
+  
+  return true;
+}
+
+bool updateChangePalette(String argval) {
+  if (argval == NULL) {
+    server.send(400, "text/plain", "Invalid request, autoChangePalette requires nonnull argument.");
+    return false;
+  }
+
+  bool shouldChange = (bool)argval.toInt();
+
+  Serial.print("Setting shouldChange: ");
+  Serial.println(shouldChange ? "true" : "false");
+  autoChangePalette = shouldChange;
+  if (autoChangePalette ) {
+    nextPalette();
+  }
   
   return true;
 }
