@@ -33,15 +33,25 @@ DEFINE_GRADIENT_PALETTE(whites) {
   255, 255, 197, 143
 };
 
+// Red, green, blue, yellow, purple.
+DEFINE_GRADIENT_PALETTE(xmas) {
+  0, 255, 0, 0,
+  64, 0, 255, 0,
+  128, 0, 0, 255,
+  192, 255, 255, 0,
+  255, 153, 50, 204
+};
+
 bool autoChangePalette = false;
 const TProgmemRGBGradientPalettePtr palettes[] = {
+  xmas,
   whites,
   (TProgmemRGBGradientPalettePtr)RainbowColors_p,
   green_purple,
   orange_green,
   orange
 };
-//CRGBPalette16 palettes[] = { RainbowColors_p };
+
 uint8_t current_palette_num = 0;
 CRGBPalette16 palette = palettes[current_palette_num];
 
@@ -138,6 +148,11 @@ void nextPalette() {
   palette = palettes[current_palette_num];
 }
 
+void setDefaultPalette(uint8_t paletteIndex) {
+  current_palette_num = min(paletteIndex, (uint8_t)(ARRAY_SIZE(palettes) - 1));
+  palette = palettes[current_palette_num];
+}
+
 int8_t crawl_index = 0;
 
 void crawl() {
@@ -217,6 +232,8 @@ void just_orange() {
 /////////////////////////////////////////////////////////
 // HTTP
 
+// http://tree.local/set?speed=5
+
 void handleIndex() {
   server.send(200, "text/plain", "true");
 }
@@ -242,6 +259,9 @@ void handleSet() {
     }
     if (argName.equals("autoChangePalette")) {
       success = success && updateChangePalette(server.arg(i));
+    }
+    if (argName.equals("palette")) {
+      success = success && updatePalette(server.arg(i));
     }
   }
 
@@ -289,7 +309,21 @@ bool updateChangePalette(String argval) {
   return true;
 }
 
+bool updatePalette(String argval) {
+  if (argval == NULL) {
+    server.send(400, "text/plain", "Invalid request, paletteNum requires integer argument.");
+    return false;
+  }
+
+  uint8_t num = argval.toInt();
+
+  Serial.print("Setting palette num: ");
+  Serial.println(num);
+  setDefaultPalette(num);
+  
+  return true;
+}
+
 void handleNotFound() {
   server.send(404, "text/plain", "404");
 }
-
