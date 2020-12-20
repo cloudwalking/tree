@@ -1,3 +1,4 @@
+#include "EEPROM.h"
 #include "ESP8266mDNS.h"
 #include "ESP8266WebServer.h"
 #include "ESP8266WiFi.h"
@@ -27,32 +28,66 @@ DEFINE_GRADIENT_PALETTE(orange) {
   255, 255, 84, 0 // Orange
 };
 
-DEFINE_GRADIENT_PALETTE(whites) {
+DEFINE_GRADIENT_PALETTE(white) {
   0, 255, 255, 255,
-  128, 255, 214, 170,
-  255, 255, 197, 143
+  255, 255, 255, 255
+};
+
+DEFINE_GRADIENT_PALETTE(whites_rgb) {
+  0, 255, 235, 215, // red tint
+  128, 235, 255, 235, // green tint
+  255, 235, 235, 255 // white tint
+};
+
+DEFINE_GRADIENT_PALETTE(rgb) {
+  0, 255, 0, 0,
+  128, 0, 255, 0,
+  255, 0, 0, 255
 };
 
 // Red, green, blue, yellow, purple.
 DEFINE_GRADIENT_PALETTE(xmas) {
-  0, 255, 0, 0,
-  64, 0, 255, 0,
-  128, 0, 0, 255,
-  192, 255, 255, 0,
-  255, 153, 50, 204
+  0, 255, 0, 0, // red
+  64, 0, 255, 0, // green
+  128, 0, 0, 255, // blue
+  192, 255, 255, 0, // yellow
+  255, 235, 40, 200 // purple
 };
 
-bool autoChangePalette = false;
+DEFINE_GRADIENT_PALETTE(green_teal) {
+  0, 0, 255, 0, // green
+  85, 38, 201, 112, // dark green
+  170, 0, 255, 255, // teal
+  255, 0, 255, 200 // turquoise? idk
+};
+
+DEFINE_GRADIENT_PALETTE(murica) {
+  0, 255, 0, 0,
+  128, 255, 255, 255,
+  255, 0, 0, 255
+};
+
 const TProgmemRGBGradientPalettePtr palettes[] = {
   xmas,
-  whites,
-  (TProgmemRGBGradientPalettePtr)RainbowColors_p,
+  whites_rgb,
+  white,
+  rgb,
+  murica,
   green_purple,
   orange_green,
-  orange
+  orange,
+  green_teal,
+  (TProgmemRGBGradientPalettePtr)PartyColors_p, // purple yellow red orange blue
+  (TProgmemRGBGradientPalettePtr)RainbowColors_p, // rainbow
+  (TProgmemRGBGradientPalettePtr)CloudColors_p, // blue white
+  (TProgmemRGBGradientPalettePtr)OceanColors_p, // blue cyan white
+  (TProgmemRGBGradientPalettePtr)ForestColors_p, // green blue
+  (TProgmemRGBGradientPalettePtr)LavaColors_p, // yellow orange red black
+  (TProgmemRGBGradientPalettePtr)HeatColors_p // yellow orange red white
 };
 
-uint8_t current_palette_num = 0;
+bool auto_change_palette = false; // Value here will be overridden by loadDynamicPrefs.
+uint8_t current_palette_num = 0; // Value here will be overridden by loadDynamicPrefs.
 CRGBPalette16 palette = palettes[current_palette_num];
 
 uint8_t current_pattern_num = 0;
@@ -72,25 +107,33 @@ void setup() {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
   Serial.begin(115200);
+
+  loadDynamicPrefs();
+  
   WiFi.hostname("tree");
   WiFi.begin("cocacola", "football");
 }
 
-bool autoChangePattern = true;
+bool auto_change_pattern = true; // Value here will be overridden by loadDynamicPrefs.
 typedef void (*SimplePatternList[])();
-SimplePatternList patterns = { confetti, ribbons, crawl, juggle };
+SimplePatternList patterns = {
+  confetti,
+  ribbons,
+  crawl,
+  juggle
+};
   
 void loop() {
   patterns[current_pattern_num]();
   cycle_counter++;
 
   EVERY_N_SECONDS(20) {
-    if (autoChangePattern) {
+    if (auto_change_pattern) {
       nextPattern();
     }
   }
   EVERY_N_SECONDS(80) {
-    if (autoChangePalette) {
+    if (auto_change_palette) {
       nextPalette();
     }
   }
@@ -113,7 +156,7 @@ void loop() {
     server.handleClient();
   }
 
-  EVERY_N_SECONDS(5) {
+  EVERY_N_SECONDS(15) {
     Serial.print("wifi status: ");
     if (WiFi.status() == WL_CONNECTED) { Serial.print(WiFi.localIP()); }
     else { Serial.print(WiFi.status()); }
@@ -145,11 +188,6 @@ void nextPattern() {
 
 void nextPalette() {
   current_palette_num = addmod8(current_palette_num , 1, ARRAY_SIZE(palettes));
-  palette = palettes[current_palette_num];
-}
-
-void setDefaultPalette(uint8_t paletteIndex) {
-  current_palette_num = min(paletteIndex, (uint8_t)(ARRAY_SIZE(palettes) - 1));
   palette = palettes[current_palette_num];
 }
 
@@ -235,7 +273,7 @@ void just_orange() {
 // http://tree.local/set?speed=5
 
 void handleIndex() {
-  server.send(200, "text/plain", "true");
+  server.send(200, "text/plain", "hello");
 }
 
 void handleSet() {
@@ -262,6 +300,9 @@ void handleSet() {
     }
     if (argName.equals("palette")) {
       success = success && updatePalette(server.arg(i));
+    }
+    if (argName.equals("autoChangePattern")) {
+      success = success && updateAutoChangePattern(server.arg(i));
     }
   }
 
@@ -301,10 +342,11 @@ bool updateChangePalette(String argval) {
 
   Serial.print("Setting shouldChange: ");
   Serial.println(shouldChange ? "true" : "false");
-  autoChangePalette = shouldChange;
-  if (autoChangePalette ) {
+  auto_change_palette = shouldChange;
+  if (auto_change_palette ) {
     nextPalette();
   }
+  saveAutoChangePaletteToDynamicPrefs(auto_change_palette);
   
   return true;
 }
@@ -315,15 +357,84 @@ bool updatePalette(String argval) {
     return false;
   }
 
-  uint8_t num = argval.toInt();
+  uint8_t index = argval.toInt();
 
   Serial.print("Setting palette num: ");
-  Serial.println(num);
-  setDefaultPalette(num);
+  Serial.println(index);
+  current_palette_num = min(index, (uint8_t)(ARRAY_SIZE(palettes) - 1));
+  palette = palettes[current_palette_num];
+  savePaletteNumToDynamicPrefs(current_palette_num);
+  
+  return true;
+}
+
+bool updateAutoChangePattern(String argval) {
+  if (argval == NULL) {
+    server.send(400, "text/plain", "Invalid request, autoChangePattern requires nonnull argument.");
+    return false;
+  }
+
+  bool shouldChange = (bool)argval.toInt();
+
+  Serial.print("Setting autoChangePattern: ");
+  Serial.println(shouldChange ? "true" : "false");
+  auto_change_pattern = shouldChange;
+  if (auto_change_pattern ) {
+    nextPattern();
+  }
+  saveAutoChangePatternToDynamicPrefs(auto_change_palette);
   
   return true;
 }
 
 void handleNotFound() {
   server.send(404, "text/plain", "404");
+}
+
+////////////////////////////////
+// DYNAMIC PREFS
+
+struct {
+  uint8_t palette_num = 0;
+  bool auto_change_palette = false;
+  bool auto_change_pattern = true;
+  // When adding new prefs also update loadDynamicPrefs() and saveDynamicPrefs().
+} dynamicPrefs;
+
+void loadDynamicPrefs() {
+  EEPROM.begin(512);
+  EEPROM.get(0, dynamicPrefs);
+  Serial.println("Loaded dynamic prefs:");
+  
+  Serial.println("- palette_num: " + String(dynamicPrefs.palette_num));
+  current_palette_num = dynamicPrefs.palette_num;
+  // Also reset the active palette instance.
+  palette = palettes[current_palette_num];
+
+  Serial.println("- auto_change_palette: " + String(dynamicPrefs.auto_change_palette));
+  auto_change_palette = dynamicPrefs.auto_change_palette;
+
+  Serial.println("- auto_change_pattern: " + String(dynamicPrefs.auto_change_pattern));
+  auto_change_pattern = dynamicPrefs.auto_change_pattern;
+}
+
+void saveDynamicPrefs() {
+  EEPROM.put(0, dynamicPrefs);
+  EEPROM.commit();
+  Serial.println("Saved dynamic prefs.");
+}
+
+void savePaletteNumToDynamicPrefs(uint8_t paletteNum) {
+  dynamicPrefs.palette_num = paletteNum;
+  saveDynamicPrefs();
+}
+
+void saveAutoChangePaletteToDynamicPrefs(bool shouldAuto) {
+  dynamicPrefs.auto_change_palette = shouldAuto;
+  saveDynamicPrefs();
+}
+
+void saveAutoChangePatternToDynamicPrefs(bool shouldAuto) {
+  dynamicPrefs.auto_change_pattern = shouldAuto;
+  saveDynamicPrefs();
 }
